@@ -40,10 +40,14 @@ func newUserRegisterReq(params *paramsUserRegister) *pbAuth.UserRegisterReq {
 
 func UserRegister(c *gin.Context) {
 	log.Info("", "", "api user_register init ....")
+	//使用etcd获取Auth服务地址
 	etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImAuthName)
+	//使用probuff服务与Auth服务通信
 	client := pbAuth.NewAuthClient(etcdConn)
+	//注释掉defer的目的是什么？
 	//defer etcdConn.Close()
 
+	//构建pb 向Auth服务进行注册
 	params := paramsUserRegister{}
 	if err := c.BindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": err.Error()})
@@ -60,6 +64,7 @@ func UserRegister(c *gin.Context) {
 	}
 	log.Info("", "", "api user_register call rpc success, [data: %s] [reply: %s]", pbData.String(), reply.String())
 
+	//注册成功后，向Auth服务申请分配token
 	pbDataToken := &pbAuth.UserTokenReq{
 		Platform: params.Platform,
 		UID:      params.UID,

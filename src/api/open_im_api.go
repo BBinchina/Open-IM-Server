@@ -16,6 +16,7 @@ import (
 	//"syscall"
 )
 
+//使用gin的http框架来响应服务请求
 func main() {
 
 	//logFile, err := os.OpenFile("./fatal.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0660)

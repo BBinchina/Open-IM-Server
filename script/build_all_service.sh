@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
+# 系统配置
 source ./style_info.cfg
+# 编译项目的路径
 source ./path_info.cfg
+
 source ./function.sh
 
 bin_dir="../bin"
@@ -20,7 +22,7 @@ fi
 
 #begin path
 begin_path=$PWD
-
+# 遍历待编译的模块  src/api  src/rpc/user/ src/rpc/friend/ src/rpc/group/ src/rpc/auth/ src/gateway src/msg_transfer/ src/rpc/chat/  src/push/ src/Open-IM-SDK-Core/
 for ((i = 0; i < ${#service_source_root[*]}; i++)); do
   cd $begin_path
   service_path=${service_source_root[$i]}
