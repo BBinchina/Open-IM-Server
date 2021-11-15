@@ -39,13 +39,14 @@ type MsgCallBackResp struct {
 		Ext         string `json:"ext"`
 	}
 }
-
+// msggateway发送过来的消息
 func (rpc *rpcChat) UserSendMsg(_ context.Context, pb *pbChat.UserSendMsgReq) (*pbChat.UserSendMsgResp, error) {
 	replay := pbChat.UserSendMsgResp{}
 	log.InfoByKv("sendMsg", pb.OperationID, "args", pb.String())
 	if !utils.VerifyToken(pb.Token, pb.SendID) {
 		return returnMsg(&replay, pb, http.StatusUnauthorized, "token validate err,not authorized", "", 0)
 	}
+	// 根据用户id 时间戳 跟随机数 生成消息id
 	serverMsgID := GetMsgID(pb.SendID)
 	pbData := pbChat.WSToMsgSvrChatMsg{}
 	pbData.MsgFrom = pb.MsgFrom
@@ -66,6 +67,7 @@ func (rpc *rpcChat) UserSendMsg(_ context.Context, pb *pbChat.UserSendMsgReq) (*
 	pbData.Token = pb.Token
 	pbData.SendTime = utils.GetCurrentTimestampByNano()
 	m := MsgCallBackResp{}
+	// 这个消息回调是做什么， 客户端发送消息 会进行哪的跳转，做敏感词判断？
 	if config.Config.MessageCallBack.CallbackSwitch {
 		bMsg, err := http2.Post(config.Config.MessageCallBack.CallbackUrl, MsgCallBackReq{
 			SendID:      pb.SendID,
@@ -91,8 +93,10 @@ func (rpc *rpcChat) UserSendMsg(_ context.Context, pb *pbChat.UserSendMsgReq) (*
 			}
 		}
 	}
+	// 根据消息类型， 个人消息通过kafka推送 群组消息 需要先获取群组成员再发往kafka
 	switch pbData.SessionType {
 	case constant.SingleChatType:
+		// 消息还要发往发送者的kafka队列，目的是：
 		err1 := rpc.sendMsgToKafka(&pbData, pbData.RecvID)
 		err2 := rpc.sendMsgToKafka(&pbData, pbData.SendID)
 		if err1 != nil || err2 != nil {
@@ -117,6 +121,7 @@ func (rpc *rpcChat) UserSendMsg(_ context.Context, pb *pbChat.UserSendMsgReq) (*
 			return returnMsg(&replay, pb, reply.ErrorCode, reply.ErrorMsg, "", 0)
 		}
 		var addUidList []string
+		// 处理 踢成员 成员退出的消息
 		switch pbData.ContentType {
 		case constant.KickGroupMemberTip:
 			var notification content_struct.NotificationContent
@@ -140,6 +145,7 @@ func (rpc *rpcChat) UserSendMsg(_ context.Context, pb *pbChat.UserSendMsgReq) (*
 		default:
 		}
 		groupID := pbData.RecvID
+		// 遍历成员列表， 往成员推送消息
 		for i, v := range reply.MemberList {
 			pbData.RecvID = v.UserId + " " + groupID
 			err := rpc.sendMsgToKafka(&pbData, utils.IntToString(i))
@@ -147,6 +153,7 @@ func (rpc *rpcChat) UserSendMsg(_ context.Context, pb *pbChat.UserSendMsgReq) (*
 				return returnMsg(&replay, pb, 201, "kafka send msg err", "", 0)
 			}
 		}
+		// 被踢出 获取 退出的用户也要收到一条消息
 		for i, v := range addUidList {
 			pbData.RecvID = v + " " + groupID
 			err := rpc.sendMsgToKafka(&pbData, utils.IntToString(i+1))
@@ -162,6 +169,7 @@ func (rpc *rpcChat) UserSendMsg(_ context.Context, pb *pbChat.UserSendMsgReq) (*
 	return returnMsg(&replay, pb, 203, "unkonwn sessionType", "", 0)
 
 }
+//供内部调用， 调用common的kafka包来推送，producer在启动chat服务是实例化
 func (rpc *rpcChat) sendMsgToKafka(m *pbChat.WSToMsgSvrChatMsg, key string) error {
 	pid, offset, err := rpc.producer.SendMessage(m, key)
 	if err != nil {

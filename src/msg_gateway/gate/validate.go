@@ -46,6 +46,7 @@ func (ws *WServer) argsValidate(m *Req, r int32) (isPass bool, errCode int32, er
 		data = MsgData{}
 	default:
 	}
+	// mapstructure 用于解密json格式到go的结构体，相当于反序列化
 	if err := mapstructure.WeakDecode(m.Data, &data); err != nil {
 		log.ErrorByKv("map to Data struct  err", "", "err", err.Error(), "reqIdentifier", r)
 		return false, 203, err.Error(), nil

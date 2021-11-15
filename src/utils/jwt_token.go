@@ -21,7 +21,7 @@ type Claims struct {
 	Platform string //login platform
 	jwt.RegisteredClaims
 }
-
+// 根据用户id，平台，存活时间构建认证
 func BuildClaims(uid, platform string, ttl int64) Claims {
 	now := time.Now()
 	return Claims{
@@ -36,7 +36,9 @@ func BuildClaims(uid, platform string, ttl int64) Claims {
 
 func CreateToken(userID string, platform int32) (string, int64, error) {
 	claims := BuildClaims(userID, PlatformIDToName(platform), config.Config.TokenPolicy.AccessExpire)
+	// 加密
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// 签名
 	tokenString, err := token.SignedString([]byte(config.Config.TokenPolicy.AccessSecret))
 
 	return tokenString, claims.ExpiresAt.Time.Unix(), err

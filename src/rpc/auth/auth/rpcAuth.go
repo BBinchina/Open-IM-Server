@@ -19,7 +19,7 @@ type rpcAuth struct {
 	etcdSchema      string
 	etcdAddr        []string
 }
-
+// 构造服务器，设置etcd 集群位置
 func NewRpcAuthServer(port int) *rpcAuth {
 	log.NewPrivateLog("auth")
 	return &rpcAuth{
@@ -41,12 +41,12 @@ func (rpc *rpcAuth) Run() {
 	}
 	log.Info("", "", "listen network success, address = %s", address)
 
-	//grpc server
+	//创建grpc server
 	srv := grpc.NewServer()
 	defer srv.GracefulStop()
 
 	//service registers with etcd
-
+	//proto 生成的pb接口
 	pbAuth.RegisterAuthServer(srv, rpc)
 	err = getcdv3.RegisterEtcd(rpc.etcdSchema, strings.Join(rpc.etcdAddr, ","), utils.ServerIP, rpc.rpcPort, rpc.rpcRegisterName, 10)
 	if err != nil {
@@ -54,6 +54,7 @@ func (rpc *rpcAuth) Run() {
 		return
 	}
 
+	//
 	err = srv.Serve(listener)
 	if err != nil {
 		log.Info("", "", "rpc get_token fail, err = %s", err.Error())

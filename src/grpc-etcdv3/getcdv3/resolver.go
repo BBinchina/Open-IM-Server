@@ -28,7 +28,7 @@ var (
 	nameResolver        = make(map[string]*Resolver)
 	rwNameResolverMutex sync.RWMutex
 )
-
+// 构建etcd client，并建立服务链接
 func NewResolver(schema, etcdAddr, serviceName string) (*Resolver, error) {
 	etcdCli, err := clientv3.New(clientv3.Config{
 		Endpoints: strings.Split(etcdAddr, ","),
@@ -61,22 +61,23 @@ func (r1 *Resolver) ResolveNow(rn resolver.ResolveNowOptions) {
 
 func (r1 *Resolver) Close() {
 }
-
+// 获取与etcd上某个服务的链接
 func GetConn(schema, etcdaddr, serviceName string) *grpc.ClientConn {
+	// 链接缓存
 	rwNameResolverMutex.RLock()
 	r, ok := nameResolver[schema+serviceName]
 	rwNameResolverMutex.RUnlock()
 	if ok {
 		return r.grpcClientConn
 	}
-
+	// 为什么请求两次
 	rwNameResolverMutex.Lock()
 	r, ok = nameResolver[schema+serviceName]
 	if ok {
 		rwNameResolverMutex.Unlock()
 		return r.grpcClientConn
 	}
-
+// 创建链接并将其放置内存
 	r, err := NewResolver(schema, etcdaddr, serviceName)
 	if err != nil {
 		rwNameResolverMutex.Unlock()

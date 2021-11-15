@@ -24,6 +24,7 @@ func (rpc *rpcChat) GetNewSeq(_ context.Context, in *pbMsg.GetNewSeqReq) (*pbMsg
 		resp.ErrMsg = ""
 		return resp, err
 	} else {
+		// 如果是redis错误，返回0
 		if err == redis.ErrNil {
 			resp.Seq = 0
 		} else {
@@ -41,6 +42,7 @@ func (rpc *rpcChat) PullMessage(_ context.Context, in *pbMsg.PullMessageReq) (*p
 	resp := new(pbMsg.PullMessageResp)
 	var respSingleMsgFormat []*pbMsg.GatherFormat
 	var respGroupMsgFormat []*pbMsg.GatherFormat
+	// 从mongodb获取用户在某个序列内的消息
 	SingleMsgFormat, GroupMsgFormat, MaxSeq, MinSeq, err := commonDB.DB.GetUserChat(in.UserID, in.SeqBegin, in.SeqEnd)
 	if err != nil {
 		log.ErrorByKv("pullMsg data error", in.OperationID, in.String())
@@ -48,6 +50,7 @@ func (rpc *rpcChat) PullMessage(_ context.Context, in *pbMsg.PullMessageReq) (*p
 		resp.ErrMsg = err.Error()
 		return resp, nil
 	}
+	// 平台两种消息类型，个人 跟 群组
 	respSingleMsgFormat = singleMsgHandleByUser(SingleMsgFormat, in.UserID)
 	respGroupMsgFormat = groupMsgHandleByUser(GroupMsgFormat)
 	return &pbMsg.PullMessageResp{

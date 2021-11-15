@@ -18,19 +18,22 @@ type paramsUserNewestSeq struct {
 	OperationID   string `json:"operationID" binding:"required"`
 	MsgIncr       int    `json:"msgIncr" binding:"required"`
 }
-
+// 获取最新的消息序号
 func UserNewestSeq(c *gin.Context) {
 	params := paramsUserNewestSeq{}
+	// 反序列化
 	if err := c.BindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": err.Error()})
 		return
 	}
 
 	token := c.Request.Header.Get("token")
+	// SendId为uid， 检验uid与token里的uid是否一致
 	if !utils.VerifyToken(token, params.SendID) {
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": "token validate err"})
 		return
 	}
+	// rpc请求
 	pbData := pbMsg.GetNewSeqReq{}
 	pbData.UserID = params.SendID
 	pbData.OperationID = params.OperationID

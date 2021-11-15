@@ -39,6 +39,7 @@ func UserRegister(pb *pbAuth.UserRegisterReq) error {
 		Ex:         pb.Ex,
 		CreateTime: time.Now(),
 	}
+	// 由ORM执行
 	err = dbConn.Table("user").Create(&addUser).Error
 	if err != nil {
 		return err

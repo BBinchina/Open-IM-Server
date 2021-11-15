@@ -17,15 +17,20 @@ type WServer struct {
 	wsUserToConn map[string]*websocket.Conn
 }
 
+// 配置websocket 监听地址，最大连接数，用户会话映射map
 func (ws *WServer) onInit(wsPort int) {
 	ip := utils.ServerIP
 	ws.wsAddr = ip + ":" + utils.IntToString(wsPort)
 	ws.wsMaxConnNum = config.Config.LongConnSvr.WebsocketMaxConnNum
 	ws.wsConnToUser = make(map[*websocket.Conn]string)
 	ws.wsUserToConn = make(map[string]*websocket.Conn)
+	// 用于升级请求为ws
 	ws.wsUpGrader = &websocket.Upgrader{
+		// 超时10s
 		HandshakeTimeout: time.Duration(config.Config.LongConnSvr.WebsocketTimeOut) * time.Second,
+		// 读缓存大小 配置为4096
 		ReadBufferSize:   config.Config.LongConnSvr.WebsocketMaxMsgLen,
+		// 支持跨域
 		CheckOrigin:      func(r *http.Request) bool { return true },
 	}
 }
@@ -39,8 +44,10 @@ func (ws *WServer) run() {
 }
 
 func (ws *WServer) wsHandler(w http.ResponseWriter, r *http.Request) {
+	// URL的query需要携带 token sendID platformID
 	if ws.headerCheck(w, r) {
 		query := r.URL.Query()
+		// 将http请求升级为ws，获得用户的conn
 		conn, err := ws.wsUpGrader.Upgrade(w, r, nil) //Conn is obtained through the upgraded escalator
 		if err != nil {
 			log.ErrorByKv("upgrade http conn err", "", "err", err)
@@ -49,7 +56,9 @@ func (ws *WServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 			//Connection mapping relationship,
 			//userID+" "+platformID->conn
 			SendID := query["sendID"][0] + " " + utils.PlatformIDToName(int32(utils.StringToInt64(query["platformID"][0])))
+			//管理用户ws 链接
 			ws.addUserConn(SendID, conn)
+			// 读取链接的请求内容， 疑问：每处理请求，需要替换旧的链接？
 			go ws.readMsg(conn)
 		}
 	}
@@ -65,6 +74,7 @@ func (ws *WServer) readMsg(conn *websocket.Conn) {
 		} else {
 			log.ErrorByKv("test", "", "msgType", msgType, "userIP", conn.RemoteAddr().String(), "userUid", ws.getUserUid(conn))
 		}
+		// logic文件里实现
 		ws.msgParse(conn, msg)
 		//ws.writeMsg(conn, 1, chat)
 	}
@@ -80,6 +90,7 @@ func (ws *WServer) writeMsg(conn *websocket.Conn, a int, msg []byte) error {
 func (ws *WServer) addUserConn(uid string, conn *websocket.Conn) {
 	rwLock.Lock()
 	defer rwLock.Unlock()
+	// 关闭旧链接
 	if oldConn, ok := ws.wsUserToConn[uid]; ok {
 		err := oldConn.Close()
 		delete(ws.wsConnToUser, oldConn)
@@ -89,6 +100,7 @@ func (ws *WServer) addUserConn(uid string, conn *websocket.Conn) {
 	} else {
 		log.InfoByKv("this user is first login", "", "uid", uid)
 	}
+	// 添加新链接
 	ws.wsConnToUser[conn] = uid
 	ws.wsUserToConn[uid] = conn
 	log.WarnByKv("WS Add operation", "", "wsUser added", ws.wsUserToConn, "uid", uid, "online_num", len(ws.wsUserToConn))

@@ -39,6 +39,7 @@ func (d *DataBases) GetUserChat(uid string, seqBegin, seqEnd int64) (SingleMsg [
 	c := session.DB(config.Config.Mongo.DBDatabase).C(cChat)
 
 	sChat := UserChat{}
+	// 获取用户的所有消息，然后在内存里过滤哪些消息是用户请求的序列内数据么？数据量太大怎么搞
 	if err = c.Find(bson.M{"uid": uid}).One(&sChat); err != nil {
 		return nil, nil, MaxSeq, MinSeq, err
 	}
@@ -70,6 +71,7 @@ func (d *DataBases) GetUserChat(uid string, seqBegin, seqEnd int64) (SingleMsg [
 			if pChat.RecvSeq < MinSeq {
 				MinSeq = pChat.RecvSeq
 			}
+			// 消息类型分类
 			if pChat.SessionType == constant.SingleChatType {
 				SingleMsg = append(SingleMsg, temp)
 			} else {
@@ -81,7 +83,7 @@ func (d *DataBases) GetUserChat(uid string, seqBegin, seqEnd int64) (SingleMsg [
 
 	return SingleMsg, GroupMsg, MaxSeq, MinSeq, nil
 }
-
+// 保存用户的聊天记录到mongodb
 func (d *DataBases) SaveUserChat(uid string, sendTime int64, m proto.Message) error {
 
 	session := d.mgoSession.Clone()

@@ -37,7 +37,7 @@ func (d *DataBases) IncrUserSeq(uid string) (int64, error) {
 	return redis.Int64(d.Exec("INCR", key))
 }
 
-//获取最新的seq
+//从redis获取最新的消息 seq
 func (d *DataBases) GetUserSeq(uid string) (int64, error) {
 	key := userIncrSeq + uid
 	return redis.Int64(d.Exec("GET", key))

@@ -24,7 +24,9 @@ type HistoryConsumerHandler struct {
 
 func (mc *HistoryConsumerHandler) Init() {
 	mc.msgHandle = make(map[string]fcb)
+	// 将数据写入mongo
 	mc.msgHandle[config.Config.Kafka.Ws2mschat.Topic] = mc.handleChatWs2Mongo
+	// 创建消费者组
 	mc.historyConsumerGroup = kfk.NewMConsumerGroup(&kfk.MConsumerGroupConfig{KafkaVersion: sarama.V0_10_2_0,
 		OffsetsInitial: sarama.OffsetNewest, IsReturnErr: false}, []string{config.Config.Kafka.Ws2mschat.Topic},
 		config.Config.Kafka.Ws2mschat.Addr, config.Config.Kafka.ConsumerGroupID.MsgToMongo)
@@ -58,6 +60,7 @@ func (mc *HistoryConsumerHandler) handleChatWs2Mongo(msg []byte, msgKey string) 
 	isHistory := utils.GetSwitchFromOptions(Options, "history")
 	//Control whether to store history messages (mysql)
 	isPersist := utils.GetSwitchFromOptions(Options, "persistent")
+	// 1对1
 	if pbData.SessionType == constant.SingleChatType {
 		log.Info("", "", "msg_transfer chat type = SingleChatType", isHistory, isPersist)
 		if isHistory {
@@ -86,6 +89,7 @@ func (mc *HistoryConsumerHandler) handleChatWs2Mongo(msg []byte, msgKey string) 
 		}
 
 		log.InfoByKv("msg_transfer handle topic success...", "", "")
+		// 群消息
 	} else if pbData.SessionType == constant.GroupChatType {
 		log.Info("", "", "msg_transfer chat type = GroupChatType")
 		if isHistory {
@@ -113,6 +117,7 @@ func (mc *HistoryConsumerHandler) ConsumeClaim(sess sarama.ConsumerGroupSession,
 	}
 	return nil
 }
+// 消费消息时，需要将消息推送给对应的接送者，可以通过rpc  rpc发送失败时，可以放到kafka里
 func sendMessageToPush(message *pbMsg.MsgSvrToPushSvrChatMsg) {
 	log.InfoByKv("msg_transfer send message to push", message.OperationID, "message", message.String())
 	msg := pbPush.PushMsgReq{}
@@ -133,16 +138,20 @@ func sendMessageToPush(message *pbMsg.MsgSvrToPushSvrChatMsg) {
 	msg.MsgID = message.MsgID
 	msg.OfflineInfo = message.OfflineInfo
 	grpcConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImPushName)
+	// 获取不到推送服务时
 	if grpcConn == nil {
 		log.ErrorByKv("rpc dial failed", msg.OperationID, "push data", msg.String())
+		// 将消息发到kafka队列
 		pid, offset, err := producer.SendMessage(message)
 		if err != nil {
 			log.ErrorByKv("kafka send failed", msg.OperationID, "send data", message.String(), "pid", pid, "offset", offset, "err", err.Error())
 		}
 		return
 	}
+	// 将消息发给推送服务
 	msgClient := pbPush.NewPushMsgServiceClient(grpcConn)
 	_, err := msgClient.PushMsg(context.Background(), &msg)
+	// 如果失败了 那还是要放到队列里
 	if err != nil {
 		log.ErrorByKv("rpc send failed", msg.OperationID, "push data", msg.String(), "err", err.Error())
 		pid, offset, err := producer.SendMessage(message)

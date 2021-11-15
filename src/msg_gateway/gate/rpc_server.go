@@ -52,6 +52,7 @@ func (r *RPCServer) run() {
 		return
 	}
 }
+// 网关rpc服务管理着客户端的用户ws，可以通过接收平台的消息来将消息推送给对应的用户
 func (r *RPCServer) MsgToUser(_ context.Context, in *pbRelay.MsgToUserReq) (*pbRelay.MsgToUserResp, error) {
 	log.InfoByKv("PushMsgToUser is arriving", in.OperationID, "args", in.String())
 	var resp []*pbRelay.SingleMsgToUser
@@ -83,6 +84,7 @@ func (r *RPCServer) MsgToUser(_ context.Context, in *pbRelay.MsgToUserReq) (*pbR
 		RecvID = strings.Split(in.GetRecvID(), " ")[0]
 	}
 	log.InfoByKv("test", in.OperationID, "wsUserToConn", ws.wsUserToConn)
+	// 用户并不一定在线，为什么遍历判断，不能find？
 	for key, conn := range ws.wsUserToConn {
 		UIDAndPID := strings.Split(key, " ")
 		if UIDAndPID[0] == RecvID {

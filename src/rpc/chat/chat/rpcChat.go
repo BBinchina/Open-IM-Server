@@ -29,6 +29,7 @@ func NewRpcChatServer(port int) *rpcChat {
 		etcdSchema:      config.Config.Etcd.EtcdSchema,
 		etcdAddr:        config.Config.Etcd.EtcdAddr,
 	}
+	// 注册kafka topic
 	rc.producer = kafka.NewKafkaProducer(config.Config.Kafka.Ws2mschat.Addr, config.Config.Kafka.Ws2mschat.Topic)
 	return &rc
 }

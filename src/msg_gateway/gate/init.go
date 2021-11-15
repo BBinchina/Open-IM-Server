@@ -17,6 +17,7 @@ var (
 func Init(rpcPort, wsPort int) {
 	//log initialization
 	log.NewPrivateLog(config.Config.ModuleName.LongConnSvrName)
+	// 读写锁
 	rwLock = new(sync.RWMutex)
 	validate = validator.New()
 	ws.onInit(wsPort)

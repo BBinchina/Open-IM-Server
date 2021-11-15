@@ -7,7 +7,7 @@ import (
 	"Open_IM/src/utils"
 	"context"
 )
-
+// 用户登录先查询用户是否存在，存在后创建应用的token
 func (rpc *rpcAuth) UserToken(_ context.Context, pb *pbAuth.UserTokenReq) (*pbAuth.UserTokenResp, error) {
 	log.Info("", "", "rpc user_token call start..., [pbTokenReq: %s]", pb.String())
 
@@ -18,6 +18,7 @@ func (rpc *rpcAuth) UserToken(_ context.Context, pb *pbAuth.UserTokenReq) (*pbAu
 	}
 	log.Info("", "", "rpc user_token call..., im_mysql_model.AppServerFindFromUserByUserID")
 
+	// 使用jwt token
 	tokens, expTime, err := utils.CreateToken(pb.UID, pb.Platform)
 	if err != nil {
 		log.Error("", "", "rpc user_token call..., utils.CreateToken fail [uid: %s] [err: %s]", pb.UID, err.Error())

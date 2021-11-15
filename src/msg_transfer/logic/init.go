@@ -14,7 +14,9 @@ var (
 
 func Init() {
 	log.NewPrivateLog(config.Config.ModuleName.MsgTransferName)
+	// 热点数据 
 	persistentCH.Init()
+	// 历史数据 mysql
 	historyCH.Init()
 	producer = kafka.NewKafkaProducer(config.Config.Kafka.Ms2pschat.Addr, config.Config.Kafka.Ms2pschat.Topic)
 }

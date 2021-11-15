@@ -39,10 +39,13 @@ func (ws *WServer) msgParse(conn *websocket.Conn, jsonMsg []byte) {
 	log.InfoByKv("Basic Info Authentication Success", m.OperationID, "reqIdentifier", m.ReqIdentifier, "sendID", m.SendID)
 
 	switch m.ReqIdentifier {
+		// 获取消息最新序列，用于请求消息
 	case constant.WSGetNewestSeq:
 		ws.newestSeqReq(conn, &m)
+		// 拉取消息
 	case constant.WSPullMsg:
 		ws.pullMsgReq(conn, &m)
+		// 发送消息
 	case constant.WSSendMsg:
 		ws.sendMsgReq(conn, &m)
 	default:
@@ -116,6 +119,7 @@ func (ws *WServer) pullMsgReq(conn *websocket.Conn, m *Req) {
 		pbData.SeqEnd = data.(SeqData).SeqEnd
 		grpcConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImOfflineMessageName)
 		msgClient := pbChat.NewChatClient(grpcConn)
+		// 根据序号区间从chat的rpc服务器获取消息，从db里获取数据
 		reply, err := msgClient.PullMessage(context.Background(), &pbData)
 		if err != nil {
 			log.ErrorByKv("PullMessage error", pbData.OperationID, "err", err.Error())
@@ -123,6 +127,7 @@ func (ws *WServer) pullMsgReq(conn *websocket.Conn, m *Req) {
 		}
 		log.InfoByKv("rpc call success to pullMsgRep", pbData.OperationID, "ReplyArgs", reply.String(), "maxSeq", reply.GetMaxSeq(),
 			"MinSeq", reply.GetMinSeq(), "singLen", len(reply.GetSingleUserMsg()), "groupLen", len(reply.GetGroupUserMsg()))
+			// 通过ws返回消息列表
 		ws.pullMsgResp(conn, m, reply)
 	} else {
 		reply.ErrCode = errCode
@@ -147,6 +152,7 @@ func (ws *WServer) sendMsgResp(conn *websocket.Conn, m *Req, pb *pbChat.UserSend
 func (ws *WServer) sendMsgReq(conn *websocket.Conn, m *Req) {
 	log.InfoByKv("Ws call success to sendMsgReq", m.OperationID, "Parameters", m)
 	reply := new(pbChat.UserSendMsgResp)
+	// 消息将json转成go结构体
 	isPass, errCode, errMsg, pData := ws.argsValidate(m, constant.WSSendMsg)
 	if isPass {
 		data := pData.(MsgData)
@@ -170,6 +176,7 @@ func (ws *WServer) sendMsgReq(conn *websocket.Conn, m *Req) {
 		etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImOfflineMessageName)
 		client := pbChat.NewChatClient(etcdConn)
 		log.Info("", "", "api UserSendMsg call, api call rpc...")
+		// 往chat rpc服务发送消息
 		reply, _ := client.UserSendMsg(context.Background(), &pbData)
 		log.Info("", "", "api UserSendMsg call end..., [data: %s] [reply: %s]", pbData.String(), reply.String())
 		ws.sendMsgResp(conn, m, reply)

@@ -21,7 +21,7 @@ type paramsUserPullMsg struct {
 		SeqEnd   *int64 `json:"seqEnd" binding:"required"`
 	}
 }
-
+// 获取序列编号内的数据，如果一开始获取最新序列号错误时， 需要从0开始拉取数据， 这个end从来确认的？
 func UserPullMsg(c *gin.Context) {
 	params := paramsUserPullMsg{}
 	if err := c.BindJSON(&params); err != nil {
@@ -50,16 +50,19 @@ func UserPullMsg(c *gin.Context) {
 		"MinSeq", reply.GetMinSeq(), "singLen", len(reply.GetSingleUserMsg()), "groupLen", len(reply.GetGroupUserMsg()))
 
 	msg := make(map[string]interface{})
+	// 单独会话
 	if v := reply.GetSingleUserMsg(); v != nil {
 		msg["single"] = v
 	} else {
 		msg["single"] = []pbChat.GatherFormat{}
 	}
+	// 群组消息
 	if v := reply.GetGroupUserMsg(); v != nil {
 		msg["group"] = v
 	} else {
 		msg["group"] = []pbChat.GatherFormat{}
 	}
+	// 获取到的最小 最大序号，让客户端可确认哪些消息丢失
 	msg["maxSeq"] = reply.GetMaxSeq()
 	msg["minSeq"] = reply.GetMinSeq()
 	c.JSON(http.StatusOK, gin.H{

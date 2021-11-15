@@ -26,20 +26,27 @@ type PersistentConsumerHandler struct {
 
 func (pc *PersistentConsumerHandler) Init() {
 	pc.msgHandle = make(map[string]fcb)
+	// 消费处理函数handleChatWs2Mysql
 	pc.msgHandle[config.Config.Kafka.Ws2mschat.Topic] = pc.handleChatWs2Mysql
-	pc.persistentConsumerGroup = kfk.NewMConsumerGroup(&kfk.MConsumerGroupConfig{KafkaVersion: sarama.V0_10_2_0,
-		OffsetsInitial: sarama.OffsetNewest, IsReturnErr: false}, []string{config.Config.Kafka.Ws2mschat.Topic},
-		config.Config.Kafka.Ws2mschat.Addr, config.Config.Kafka.ConsumerGroupID.MsgToMySql)
+	// 创建kafka的消费者
+	pc.persistentConsumerGroup = kfk.NewMConsumerGroup(
+		&kfk.MConsumerGroupConfig{KafkaVersion: sarama.V0_10_2_0,OffsetsInitial: sarama.OffsetNewest,IsReturnErr: false},
+		[]string{config.Config.Kafka.Ws2mschat.Topic},
+		config.Config.Kafka.Ws2mschat.Addr,
+		config.Config.Kafka.ConsumerGroupID.MsgToMySql)
 
 }
+// 将kafka收到的数据持久化
 func (pc *PersistentConsumerHandler) handleChatWs2Mysql(msg []byte, msgKey string) {
 	log.InfoByKv("chat come here mysql!!!", "", "chat", string(msg))
 	pbData := pbMsg.WSToMsgSvrChatMsg{}
+	// 反序列化
 	err := proto.Unmarshal(msg, &pbData)
 	if err != nil {
 		log.ErrorByKv("msg_transfer Unmarshal chat err", "", "chat", string(msg), "err", err.Error())
 		return
 	}
+	// 将json转成 kv
 	Options := utils.JsonStringToMap(pbData.Options)
 	//Control whether to store history messages (mysql)
 	isPersist := utils.GetSwitchFromOptions(Options, "persistent")
@@ -52,6 +59,7 @@ func (pc *PersistentConsumerHandler) handleChatWs2Mysql(msg []byte, msgKey strin
 				return
 			}
 		} else if pbData.SessionType == constant.GroupChatType && msgKey == "0" {
+			// 消息接收者 通过 组号 + “ ” + 用户id组成
 			pbData.RecvID = strings.Split(pbData.RecvID, " ")[1]
 			log.InfoByKv("msg_transfer chat persisting", pbData.OperationID)
 			if err = im_mysql_msg_model.InsertMessageToChatLog(pbData); err != nil {
