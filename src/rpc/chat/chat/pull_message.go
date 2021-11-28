@@ -16,6 +16,7 @@ import (
 func (rpc *rpcChat) GetNewSeq(_ context.Context, in *pbMsg.GetNewSeqReq) (*pbMsg.GetNewSeqResp, error) {
 	log.InfoByKv("rpc getNewSeq is arriving", in.OperationID, in.String())
 	//seq, err := model.GetBiggestSeqFromReceive(in.UserID)
+	// 从redis获取用户记录的读取的消息序号
 	seq, err := commonDB.DB.GetUserSeq(in.UserID)
 	resp := new(pbMsg.GetNewSeqResp)
 	if err == nil {
@@ -24,7 +25,7 @@ func (rpc *rpcChat) GetNewSeq(_ context.Context, in *pbMsg.GetNewSeqReq) (*pbMsg
 		resp.ErrMsg = ""
 		return resp, err
 	} else {
-		// 如果是redis错误，返回0
+		// 如果是redis错误，返回0，需要用户拉取所有消息了
 		if err == redis.ErrNil {
 			resp.Seq = 0
 		} else {

@@ -34,7 +34,7 @@ func (ws *WServer) onInit(wsPort int) {
 		CheckOrigin:      func(r *http.Request) bool { return true },
 	}
 }
-
+// 获取http的请求，将http升级为ws，一个用户只会有一次ws链接，当重复请求时，会关闭旧ws链接复用新的
 func (ws *WServer) run() {
 	http.HandleFunc("/", ws.wsHandler)         //Get request from client to handle by wsHandler
 	err := http.ListenAndServe(ws.wsAddr, nil) //Start listening
